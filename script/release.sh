@@ -81,11 +81,22 @@ for bundle in "$BUILD_DIR"/*.bundle; do
 done
 shopt -u nullglob
 
-echo "==> compiling app icon"
-xcrun actool "$ROOT_DIR/assets/AppIcon.icon" --compile "$APP_RESOURCES" \
-  --app-icon AppIcon --enable-on-demand-resources NO --development-region en \
-  --target-device mac --platform macosx --minimum-deployment-target "$MIN_SYSTEM_VERSION" \
-  --output-partial-info-plist /dev/null --output-format human-readable-text --errors --warnings
+# Install the app icon. Prefer the prebuilt compiled catalog: actool on GitHub's runners (Xcode 26.4.1
+# and 26.5) crashes on the Icon Composer `.icon` refractivity feature (Apple regression FB20183399), so
+# CI can't compile it. The committed Assets.car is produced by a working actool via script/compile_icon.sh;
+# regenerate it there whenever assets/AppIcon.icon changes. Fall back to actool where it works (e.g. local).
+if [ -f "$ROOT_DIR/assets/AppIcon.prebuilt/Assets.car" ]; then
+  echo "==> installing prebuilt app icon"
+  cp "$ROOT_DIR/assets/AppIcon.prebuilt/Assets.car" "$APP_RESOURCES/Assets.car"
+  [ -f "$ROOT_DIR/assets/AppIcon.prebuilt/AppIcon.icns" ] \
+    && cp "$ROOT_DIR/assets/AppIcon.prebuilt/AppIcon.icns" "$APP_RESOURCES/AppIcon.icns"
+else
+  echo "==> compiling app icon"
+  xcrun actool "$ROOT_DIR/assets/AppIcon.icon" --compile "$APP_RESOURCES" \
+    --app-icon AppIcon --enable-on-demand-resources NO --development-region en \
+    --target-device mac --platform macosx --minimum-deployment-target "$MIN_SYSTEM_VERSION" \
+    --output-partial-info-plist /dev/null --output-format human-readable-text --errors --warnings
+fi
 
 cat >"$APP_CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
